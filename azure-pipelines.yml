@@ -1,22 +1,116 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
+Skip to content
+Search or jump to…
+Pull requests
+Issues
+Marketplace
+Explore
+ 
+@nivshemer 
+nivshemer
+/
+AZPipeLine
+Public
+Code
+Issues
+Pull requests
+Actions
+Projects
+Wiki
+Security
+Insights
+Settings
+AZPipeLine/azure-pipelines-1.yml
+@nivshemer
+nivshemer Set up CI with Azure Pipelines
+…
+Latest commit e17ae76 32 minutes ago
+ History
+ 1 contributor
+74 lines (60 sloc)  1.92 KB
+   
+# PowerShell Function App to Windows on Azure
+# Build a PowerShell Function App and deploy it to Azure as a Windows function app.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/en-us/azure/azure-functions/functions-reference-powershell
 
 trigger:
 - main
 
-pool:
-  vmImage: ubuntu-latest
+variables:
+  # Azure Resource Manager connection created during pipeline creation
+  azureSubscription: '293addb7-7583-4c1e-a466-cb2253234630'
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
-- task: PowerShell@2
-  inputs:
-    filePath: '$(System.DefaultWorkingDirectory)\AzureTask2.ps1'
+  # Function app name
+  functionAppName: 'Func-PSCredDemo'
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+  # Agent VM image name
+  vmImageName: 'windows-2019'
+
+  # Working Directory
+  workingDirectory: '$(System.DefaultWorkingDirectory)'
+
+stages:
+- stage: Build
+  displayName: Build stage
+
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: $(vmImageName)
+
+    steps:
+    - powershell: |
+        if (Test-Path "extensions.csproj") {
+            dotnet build extensions.csproj --output ./$(workingDirectory)/bin
+        }
+      displayName: 'Build extensions'
+    - task: ArchiveFiles@2
+      displayName: 'Archive files'
+      inputs:
+        rootFolderOrFile: $(workingDirectory)
+        includeRootFolder: false
+        archiveType: zip
+        archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+        replaceExistingArchive: true
+
+    - publish: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+      artifact: drop
+
+- stage: Deploy
+  displayName: Deploy stage
+  dependsOn: Build
+  condition: succeeded()
+
+  jobs:
+  - deployment: Deploy
+    displayName: Deploy
+    environment: $(functionAppName)
+    pool:
+      vmImage: $(vmImageName)
+
+    strategy:
+      runOnce:
+        deploy:
+
+          steps:
+          - task: AzureFunctionApp@1
+            displayName: 'Azure functions app deploy'
+            inputs:
+              azureSubscription: '$(azureSubscription)'
+              appType: functionApp
+              appName: $(functionAppName)
+              package: '$(Pipeline.Workspace)/drop/$(Build.BuildId).zip'
+© 2021 GitHub, Inc.
+Terms
+Privacy
+Security
+Status
+Docs
+Contact GitHub
+Pricing
+API
+Training
+Blog
+About
+Loading complete
